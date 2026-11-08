@@ -1,0 +1,5 @@
+.claude/
+.env
+.env.*
+*.json.bak
+위시함-백업-*.json
