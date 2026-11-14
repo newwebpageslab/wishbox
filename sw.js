@@ -1,6 +1,6 @@
 // 서비스 워커: 앱 화면을 기기에 저장해 오프라인에서도 열리게 함
 // 코드를 수정하면 VERSION을 올려야 폰에 새 버전이 반영됩니다.
-const VERSION = 'wishbox-v1';
+const VERSION = 'wishbox-v6';
 const SHELL = [
   './',
   './index.html',
@@ -32,7 +32,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
-  if (req.method !== 'GET' || url.origin !== self.location.origin) return; // 외부 요청(프록시 등)은 캐시하지 않음
+  if (req.method !== 'GET' || url.origin !== self.location.origin) return; // 외부 요청은 캐시하지 않음
 
   // 페이지 이동(공유하기 ?share=… 포함)은 앱 화면으로
   if (req.mode === 'navigate') {
@@ -53,20 +53,4 @@ self.addEventListener('fetch', (event) => {
       return cached || network;
     })
   );
-});
-
-// 목표가 알림을 누르면 해당 위시 열기
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  const id = event.notification.data?.id;
-  event.waitUntil((async () => {
-    const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    const client = all[0];
-    if (client) {
-      await client.focus();
-      client.postMessage({ type: 'open-item', id });
-    } else {
-      await self.clients.openWindow(`./?item=${encodeURIComponent(id || '')}`);
-    }
-  })());
 });

@@ -10,11 +10,14 @@
   --label-2: rgba(60, 60, 67, 0.64);
   --label-3: rgba(60, 60, 67, 0.36);
   --separator: rgba(60, 60, 67, 0.16);
-  --accent: #ff2d55;
-  --accent-ink: #d70f3c;
-  --accent-tint: rgba(255, 45, 85, 0.12);
-  --green: #1f8a3b;
-  --green-tint: rgba(52, 199, 89, 0.16);
+  /* 채도를 살짝 낮춘 포인트 색 (기존 대비 약 12%↓) */
+  --accent: #f23a5c;
+  --accent-rgb: 242, 58, 92;
+  --accent-ink: #cc1943;
+  --accent-tint: rgba(242, 58, 92, 0.11);
+  --green: #2a8445;
+  --green-tint: rgba(61, 191, 98, 0.15);
+  --switch-on: #3dbf62;
   --red: #d70015;
   --warn: #a05a00;
   --material: rgba(246, 246, 250, 0.72);
@@ -44,11 +47,13 @@
     --label-2: rgba(235, 235, 245, 0.64);
     --label-3: rgba(235, 235, 245, 0.32);
     --separator: rgba(84, 84, 88, 0.6);
-    --accent: #ff375f;
-    --accent-ink: #ff6482;
-    --accent-tint: rgba(255, 55, 95, 0.2);
-    --green: #30d158;
-    --green-tint: rgba(48, 209, 88, 0.2);
+    --accent: #f34467;
+    --accent-rgb: 243, 68, 103;
+    --accent-ink: #f56a86;
+    --accent-tint: rgba(243, 68, 103, 0.19);
+    --green: #3cc463;
+    --green-tint: rgba(60, 196, 99, 0.19);
+    --switch-on: #3cc463;
     --red: #ff6961;
     --warn: #ffb340;
     --material: rgba(28, 28, 30, 0.72);
@@ -86,6 +91,7 @@ button:disabled { cursor: default; opacity: 0.4; }
 .tone-green { color: var(--green); }
 .tone-red { color: var(--red); }
 .tone-warn { color: var(--warn); }
+.tone-accent { color: var(--accent-ink); font-weight: 600; }
 
 /* ───────── 상단바 (스크롤하면 반투명 재질) ───────── */
 .navbar {
@@ -186,7 +192,7 @@ button:disabled { cursor: default; opacity: 0.4; }
 .segmented {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 0.8fr 1fr 1fr 1.3fr;
   margin-top: 14px;
   padding: 2px;
   border-radius: 10px;
@@ -197,9 +203,10 @@ button:disabled { cursor: default; opacity: 0.4; }
   z-index: 1;
   height: 34px;
   border-radius: 8px;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   color: var(--label-2);
+  white-space: nowrap;
   transition: color 160ms ease;
 }
 .segmented button[aria-selected="true"] { color: var(--label); font-weight: 650; }
@@ -258,8 +265,9 @@ button:disabled { cursor: default; opacity: 0.4; }
   font-size: 0.8125rem;
   color: var(--label-2);
 }
-.summary { flex: 1; font-variant-numeric: tabular-nums; }
-.check-status { color: var(--accent-ink); font-weight: 500; }
+.list-bar-spacer { flex: 1; }
+.summary { margin: -4px 0 10px; font-size: 0.8125rem; color: var(--label-2); font-variant-numeric: tabular-nums; }
+.summary:empty { display: none; }
 .text-btn {
   display: inline-flex;
   align-items: center;
@@ -326,7 +334,7 @@ button:disabled { cursor: default; opacity: 0.4; }
   backdrop-filter: blur(12px) saturate(180%);
 }
 .badge .ic { width: 13px; height: 13px; stroke-width: 2.4; }
-.badge-green { left: 8px; background: rgba(36, 138, 61, 0.88); color: #fff; }
+.badge-green { left: 8px; background: rgba(42, 132, 69, 0.88); color: #fff; }
 .badge-heart { right: 8px; width: 26px; padding: 0; justify-content: center; background: rgba(255, 255, 255, 0.78); color: var(--accent); }
 .badge-heart .ic { fill: currentColor; stroke-width: 0; width: 15px; height: 15px; }
 .card-body { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px 12px; min-width: 0; }
@@ -353,6 +361,86 @@ button:disabled { cursor: default; opacity: 0.4; }
 .empty-title { margin: 16px 0 6px; font-size: 1.125rem; font-weight: 650; letter-spacing: -0.01em; }
 .empty-desc { margin: 0 0 20px; font-size: 0.9375rem; color: var(--label-2); line-height: 1.55; }
 
+/* ───────── 네이버 최저가 섹션 ───────── */
+.lowest { margin-top: 18px; }
+#lowestBody { display: flex; flex-direction: column; gap: 12px; }
+.lowest-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.lowest-head h2 { margin: 0; font-size: 1.375rem; line-height: 1.2; font-weight: 700; letter-spacing: -0.02em; }
+.lowest-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; font-size: 0.875rem; color: var(--label-2); }
+.lowest-notice .ic { width: 16px; height: 16px; }
+.lowest-list { border-radius: var(--radius-group); background: var(--surface); overflow: hidden; }
+.lowest-list:empty { display: none; }
+@media (prefers-color-scheme: dark) {
+  .lowest-list { background: #1c1c1e; }
+}
+.low-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 12px; }
+.low-row + .low-row { box-shadow: inset 0 0.5px 0 var(--separator); }
+.low-thumb {
+  position: relative;
+  flex: none;
+  width: 56px; height: 56px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--fill-2);
+}
+.low-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.low-thumb .placeholder { font-size: 1.375rem; }
+.low-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.low-name {
+  text-align: left;
+  font-size: 0.875rem;
+  color: var(--label-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.low-price { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 6px; font-size: 0.9375rem; }
+.low-price b { font-size: 1.0625rem; font-weight: 700; letter-spacing: -0.015em; font-variant-numeric: tabular-nums; }
+.low-mall { font-size: 0.8125rem; color: var(--label); font-weight: 500; }
+.low-go {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 32px;
+  padding: 0 10px 0 12px;
+  border-radius: 16px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  text-decoration: none;
+  transition: transform 100ms ease-out;
+}
+.low-go .ic { width: 14px; height: 14px; stroke-width: 2.4; }
+.low-go:active { transform: scale(0.94); }
+.low-go-gray { background: var(--fill-2); color: var(--label); }
+
+.detail-brand { font-size: 0.9375rem; font-weight: 650; color: var(--accent-ink); letter-spacing: 0.01em; }
+.detail-head { position: relative; }
+.detail-head > :not(.detail-fav) { padding-right: 48px; }
+.detail-head > .detail-price, .detail-head > .status-pill { padding-right: 0; }
+
+/* 꼭 사고 싶음 하트 */
+.detail-fav, .heart-check {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--label-3);
+  transition: transform 140ms var(--ease-out), color 160ms ease, background-color 160ms ease;
+}
+.detail-fav { position: absolute; top: 0; right: 0; width: 44px; height: 44px; background: var(--fill-2); }
+.detail-fav .ic { width: 24px; height: 24px; }
+.heart-check { width: 30px; height: 30px; flex: none; background: var(--fill-2); }
+.heart-check .ic { width: 18px; height: 18px; }
+.detail-fav[aria-pressed="true"], .fav-row[aria-pressed="true"] .heart-check { color: var(--accent); background: var(--accent-tint); }
+.detail-fav[aria-pressed="true"] .ic, .fav-row[aria-pressed="true"] .heart-check .ic { fill: currentColor; }
+.detail-fav:active, .fav-row:active .heart-check { transform: scale(0.88); }
+.fav-row { gap: 12px; }
+.row.fav-row > span.heart-check { flex: none; width: 30px; }
+.fav-row > span:last-child { flex: 1; text-align: left; }
+.fav-row[aria-pressed="true"] > span:last-child { font-weight: 600; }
+
 /* ───────── 플로팅 추가 버튼 (재질) ───────── */
 .fab-wrap {
   position: fixed;
@@ -376,11 +464,11 @@ button:disabled { cursor: default; opacity: 0.4; }
   font-weight: 650;
   font-size: 1rem;
   letter-spacing: 0.005em;
-  box-shadow: 0 8px 24px rgba(255, 45, 85, 0.32), 0 2px 6px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  box-shadow: 0 8px 24px rgba(var(--accent-rgb), 0.28), 0 2px 6px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.25);
   transition: transform 100ms ease-out, box-shadow 100ms ease-out;
 }
 .fab .ic { width: 22px; height: 22px; stroke-width: 2.4; }
-.fab:active { transform: scale(0.95); box-shadow: 0 4px 12px rgba(255, 45, 85, 0.28); }
+.fab:active { transform: scale(0.95); box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.24); }
 
 /* ───────── 버튼 ───────── */
 .btn {
@@ -538,7 +626,6 @@ button:disabled { cursor: default; opacity: 0.4; }
 .field-hint { display: flex; align-items: center; gap: 5px; margin: 0; padding: 0 16px 12px; font-size: 0.8125rem; color: var(--label-2); box-shadow: none !important; }
 .field-hint .ic { width: 15px; height: 15px; }
 .field .field-hint { padding: 0; }
-.target-hint.tone-green { color: var(--green); font-weight: 600; }
 
 .link-status {
   display: flex;
@@ -643,22 +730,6 @@ button:disabled { cursor: default; opacity: 0.4; }
 .detail-price .muted { font-size: 1.125rem; font-weight: 500; }
 .status-pill { align-self: flex-start; margin-top: 6px; padding: 3px 10px; border-radius: 10px; background: var(--fill-2); font-size: 0.8125rem; font-weight: 600; color: var(--label-2); }
 
-.target-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 14px 16px;
-  border-radius: var(--radius-group);
-  background: var(--surface);
-}
-@media (prefers-color-scheme: dark) { .target-card { background: #2c2c2e; } }
-.target-card > .ic { width: 26px; height: 26px; color: var(--accent-ink); margin-top: 1px; }
-.target-card > div { display: flex; flex-direction: column; gap: 2px; flex: 1; font-size: 0.875rem; }
-.target-card b { font-size: 1rem; font-weight: 650; }
-.target-card.reached { background: var(--green-tint); color: var(--green); }
-.target-card.reached > .ic { color: var(--green); }
-.progress { height: 6px; margin-top: 8px; border-radius: 3px; background: var(--fill); overflow: hidden; }
-.progress i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
 
 .row {
   display: flex;
@@ -671,7 +742,8 @@ button:disabled { cursor: default; opacity: 0.4; }
   font-size: 1rem;
 }
 .row > .ic { width: 20px; height: 20px; color: var(--accent-ink); }
-.row > span:first-of-type { flex: 1; min-width: 0; }
+.row > span:first-of-type { flex: 1 0 auto; white-space: nowrap; }
+.row > .row-value { flex: 0 1 auto; min-width: 0; }
 .row-toggle.disabled .switch:checked { background: var(--fill); }
 .row-value { flex: none; color: var(--label-2); font-size: 0.9375rem; text-align: right; font-variant-numeric: tabular-nums; }
 .row-btn { transition: background-color 80ms ease; }
@@ -708,7 +780,7 @@ button:disabled { cursor: default; opacity: 0.4; }
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15), 0 1px 1px rgba(0, 0, 0, 0.16);
   transition: transform 260ms var(--ease-out);
 }
-.switch:checked { background: #34c759; }
+.switch:checked { background: var(--switch-on); }
 .switch:checked::after { transform: translateX(20px); }
 .switch:disabled { cursor: default; }
 
@@ -808,7 +880,7 @@ html.sheet-open .toast-root { bottom: calc(24px + var(--safe-bottom)); }
 .toast:not(:has(.toast-action)) { padding-right: 18px; }
 .toast-action { flex: none; height: 32px; padding: 0 12px; border-radius: 16px; background: rgba(255, 255, 255, 0.16); color: #fff; font-size: 0.875rem; font-weight: 650; }
 .toast-action:active { background: rgba(255, 255, 255, 0.28); }
-.toast-green { background: rgba(24, 110, 48, 0.94); }
+.toast-green { background: rgba(36, 104, 58, 0.94); }
 
 /* 스피너 */
 .spinner {
