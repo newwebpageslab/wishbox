@@ -795,8 +795,6 @@ function openDetail(id) {
   sheet.left.innerHTML = `<button type="button" class="nav-btn" data-act="edit">편집</button>`;
   sheet.right.innerHTML = `<button type="button" class="nav-btn nav-btn-strong" data-act="close">닫기</button>`;
 
-  let editingPrice = false;
-
   function historyHtml(it) {
     const list = [...(it.priceHistory || [])].reverse().slice(0, 8);
     if (list.length < 2) return '';
@@ -823,7 +821,7 @@ function openDetail(id) {
     if (it.status === 'wish') {
       return `<div class="action-pair">
         <button type="button" class="btn btn-tinted" data-act="bought">${icon('bag')}구매 완료</button>
-        <button type="button" class="btn btn-gray" data-act="dropped">${icon('xmark')}포기할래요</button>
+        <button type="button" class="btn btn-gray" data-act="dropped">${icon('xmark')}구매 포기</button>
       </div>`;
     }
     return `<button type="button" class="btn btn-gray btn-block" data-act="restore">${icon('heart')}다시 위시로 옮기기</button>`;
@@ -849,21 +847,11 @@ function openDetail(id) {
         ${queryOf(it) ? naverLink(it, `${icon('search')}네이버에서 최저가 찾기`, 'btn btn-primary btn-block') : ''}
         ${it.url ? `<a class="btn btn-gray btn-block" href="${esc(it.url)}" target="_blank" rel="noopener noreferrer">${esc(it.site || '쇼핑몰')}에서 보기${icon('arrow-up-right')}</a>` : ''}
 
-        ${it.status === 'wish' ? `
-        <section class="group price-update">
-          ${editingPrice ? `
-            <form class="price-form" data-role="price-form">
-              <div class="money"><input name="newPrice" inputmode="numeric" autocomplete="off" placeholder="바뀐 가격" value="${formatDigits(it.price)}"><span>원</span></div>
-              <button type="submit" class="pill-btn pill-strong">저장</button>
-              <button type="button" class="pill-btn" data-act="price-cancel">취소</button>
-            </form>` : `
-            <button type="button" class="row row-btn" data-act="price-edit">${icon('tag')}<span>가격이 바뀌었나요?</span><span class="row-value muted">직접 수정</span></button>`}
-        </section>` : ''}
-
+        ${it.memo ? `
         <section class="group memo-group">
           <div class="group-title">메모</div>
-          <p class="memo ${it.memo ? '' : 'muted'}">${it.memo ? esc(it.memo) : '메모가 없어요. 편집에서 추가할 수 있어요.'}</p>
-        </section>
+          <p class="memo">${esc(it.memo)}</p>
+        </section>` : ''}
 
         <section class="group">
           <div class="row"><span>저장한 날</span><span class="row-value">${fmtDate(it.createdAt)} · ${daysAgo(it.createdAt)}</span></div>
@@ -882,24 +870,6 @@ function openDetail(id) {
         const i = Math.round(gallery.scrollLeft / gallery.clientWidth);
         dots.forEach((d, j) => d.classList.toggle('on', i === j));
       }, { passive: true });
-    }
-    const priceForm = $('[data-role="price-form"]', sheet.body);
-    if (priceForm) {
-      const input = priceForm.elements.newPrice;
-      input.addEventListener('input', () => (input.value = formatDigits(input.value)));
-      input.focus();
-      input.select();
-      priceForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const price = parsePrice(input.value);
-        if (!price) { input.focus(); return; }
-        const target = findItem(id);
-        const changed = applyPrice(target, price);
-        editingPrice = false;
-        if (changed) await persist(target);
-        render();
-        if (changed) { haptic(10); toast('가격을 업데이트했어요'); }
-      });
     }
   }
 
@@ -949,8 +919,6 @@ function openDetail(id) {
       case 'dropped': changeStatus('dropped'); break;
       case 'restore': changeStatus('wish'); break;
       case 'delete': remove(); break;
-      case 'price-edit': editingPrice = true; draw(); break;
-      case 'price-cancel': editingPrice = false; draw(); break;
       case 'toggle-fav': {
         const it = findItem(id);
         it.favorite = !it.favorite;
