@@ -191,15 +191,18 @@ function render() {
     $('.seg-count', b).textContent = counts[b.dataset.status] || '';
   });
 
-  // 최저가 검색 탭이면 목록 영역을 숨기고 최저가 찾기 목록만 표시
+  // 카테고리 칩: 최저가 검색 탭은 검색 가능한 위시 기준, 나머지 탭은 해당 상태 기준
   const onLowestTab = state.status === 'lowest';
+  const inStatus = onLowestTab
+    ? state.items.filter((i) => i.status === 'wish' && queryOf(i))
+    : state.items.filter((i) => i.status === state.status);
+  renderChips(inStatus);
+
+  // 최저가 검색 탭이면 목록 영역을 숨기고 최저가 찾기 목록만 표시
   $('#listArea').hidden = onLowestTab;
   renderLowest();
   openDetailSheet?.refresh();
   if (onLowestTab) return;
-
-  const inStatus = state.items.filter((i) => i.status === state.status);
-  renderChips(inStatus);
 
   let list = inStatus;
   if (state.filter.startsWith('cat:')) list = list.filter((i) => i.category === state.filter.slice(4));
@@ -257,8 +260,10 @@ function renderLowest() {
   lowestSection.hidden = state.status !== 'lowest';
   if (lowestSection.hidden) return;
   const q = state.query.trim().toLowerCase();
-  const allWish = state.items.filter((i) => i.status === 'wish' && queryOf(i));
-  const wish = sortItems(q ? allWish.filter((i) => matchesQuery(i, q)) : allWish);
+  let list = state.items.filter((i) => i.status === 'wish' && queryOf(i));
+  if (state.filter.startsWith('cat:')) list = list.filter((i) => i.category === state.filter.slice(4));
+  if (q) list = list.filter((i) => matchesQuery(i, q));
+  const wish = sortItems(list);
 
   const empty = $('#lowestEmpty');
   empty.hidden = wish.length > 0;
