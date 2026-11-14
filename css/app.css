@@ -643,6 +643,10 @@ button:disabled { cursor: default; opacity: 0.4; }
 
 .choice-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 12px; box-shadow: none !important; }
 .choice-chips .chip.selected { background: var(--accent); color: #fff; }
+/* 자동완성 추천어 */
+.suggest { padding-top: 0; }
+.suggest .chip { font-weight: 400; }
+.suggest .chip b { font-weight: 700; color: var(--accent-ink); }
 
 .mini-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 2px; margin-top: 4px; border-radius: 10px; background: var(--fill-2); }
 .mini-seg button { height: 34px; border-radius: 8px; font-size: 0.8125rem; font-weight: 500; color: var(--label-2); transition: background-color 160ms ease, color 160ms ease; }

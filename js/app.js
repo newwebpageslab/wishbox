@@ -415,6 +415,31 @@ function choiceChips(values, selected, attr) {
     .join('');
 }
 
+/* 자동완성 매칭: 대소문자·띄어쓰기 무시, 한글 초성 검색 지원 (예: "ㄴㅇㅋ" → 나이키) */
+const CHOSUNG = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
+const squash = (s) => String(s).toLowerCase().replace(/\s+/g, '');
+const toChosung = (s) =>
+  [...squash(s)].map((ch) => {
+    const code = ch.charCodeAt(0) - 0xac00;
+    return code >= 0 && code <= 11171 ? CHOSUNG[Math.floor(code / 588)] : ch;
+  }).join('');
+const isChosungOnly = (s) => /^[ㄱ-ㅎ]+$/.test(squash(s));
+
+function matchesTyped(candidate, typed) {
+  const t = squash(typed);
+  if (!t) return false;
+  if (squash(candidate).includes(t)) return true;
+  return isChosungOnly(t) && toChosung(candidate).includes(t);
+}
+
+// 입력한 글자와 일치하는 부분을 굵게 (일반 문자 일치일 때만)
+function highlightMatch(candidate, typed) {
+  const t = typed.trim();
+  const i = candidate.toLowerCase().indexOf(t.toLowerCase());
+  if (!t || i < 0) return esc(candidate);
+  return `${esc(candidate.slice(0, i))}<b>${esc(candidate.slice(i, i + t.length))}</b>${esc(candidate.slice(i + t.length))}`;
+}
+
 function topValues(key, limit) {
   const counts = new Map();
   state.items.forEach((i) => i[key] && counts.set(i[key], (counts.get(i[key]) || 0) + 1));
@@ -433,8 +458,9 @@ function openForm(existing = null, { sharedText = '' } = {}) {
 
   // 기본 카테고리 + 직접 만든 카테고리
   const categoryOptions = [...new Set([...DEFAULT_CATEGORIES, ...topValues('category', 6)])];
-  const brandOptions = topValues('brand', 8);
-  const siteOptions = topValues('site', 8);
+  // 자동완성 후보: 지금까지 입력한 브랜드·사이트 (많이 쓴 순)
+  const brandPool = topValues('brand', 300);
+  const sitePool = topValues('site', 300);
 
   sheet.body.innerHTML = `
     <form class="form" novalidate>
@@ -448,17 +474,17 @@ function openForm(existing = null, { sharedText = '' } = {}) {
           <span class="field-label">브랜드명</span>
           <input name="brand" autocomplete="off" placeholder="브랜드명을 입력해주세요" maxlength="40" value="${esc(draft.brand)}">
         </label>
-        ${brandOptions.length ? `<div class="choice-chips" data-role="brands">${choiceChips(brandOptions, draft.brand, 'brand')}</div>` : ''}
+        <div class="choice-chips suggest" data-role="brand-suggest" aria-label="브랜드 추천" hidden></div>
         <label class="field">
           <span class="field-label">상품명</span>
           <textarea name="title" rows="1" placeholder="상품명을 입력해주세요" maxlength="200">${esc(draft.title)}</textarea>
         </label>
-        <p class="field-hint">${icon('search')}브랜드명 + 상품명으로 네이버 최저가를 찾아요. 모델명까지 적으면 더 정확해요.</p>
+        <p class="field-hint">${icon('search')}브랜드명 + 상품명으로 네이버 최저가를 찾아요.</p>
         <label class="field">
           <span class="field-label">${icon('store')}사이트</span>
           <input name="site" autocomplete="off" placeholder="사이트를 입력해주세요" maxlength="40" value="${esc(draft.site)}">
         </label>
-        ${siteOptions.length ? `<div class="choice-chips" data-role="sites">${choiceChips(siteOptions, draft.site, 'site')}</div>` : ''}
+        <div class="choice-chips suggest" data-role="site-suggest" aria-label="사이트 추천" hidden></div>
       </section>
 
       <section class="group">
@@ -534,8 +560,29 @@ function openForm(existing = null, { sharedText = '' } = {}) {
     input.addEventListener('input', sync);
   };
   bindChips('categories', 'cat', categoryInput);
-  bindChips('brands', 'brand', brandInput);
-  bindChips('sites', 'site', siteInput);
+
+  // 자동완성: 입력하는 동안 비슷한 브랜드·사이트를 아래에 추천 (빈 칸이면 숨김)
+  const bindSuggest = (input, pool, role) => {
+    const box = $(`[data-role="${role}"]`, form);
+    const update = () => {
+      const typed = input.value.trim();
+      const matches = typed ? pool.filter((v) => v !== typed && matchesTyped(v, typed)).slice(0, 6) : [];
+      box.hidden = !matches.length;
+      box.innerHTML = matches
+        .map((v) => `<button type="button" class="chip chip-sm" data-pick="${esc(v)}"><span>${highlightMatch(v, typed)}</span></button>`)
+        .join('');
+    };
+    input.addEventListener('input', update);
+    box.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-pick]');
+      if (!btn) return;
+      input.value = btn.dataset.pick;
+      input.dispatchEvent(new Event('input'));
+      haptic(6);
+    });
+  };
+  bindSuggest(brandInput, brandPool, 'brand-suggest');
+  bindSuggest(siteInput, sitePool, 'site-suggest');
 
   $('[data-act="toggle-fav"]', form).addEventListener('click', (e) => {
     draft.favorite = !draft.favorite;
