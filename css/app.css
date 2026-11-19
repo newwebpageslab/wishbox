@@ -146,6 +146,18 @@ button:disabled { cursor: default; opacity: 0.4; }
   transition: transform 100ms ease-out, background-color 100ms ease-out;
 }
 .icon-btn .ic { width: 24px; height: 24px; stroke-width: 1.8; }
+.icon-btn { position: relative; }
+.icon-btn.has-alert::after { /* 클라우드 동기화 오류 표시 */
+  content: "";
+  position: absolute;
+  top: 7px; right: 7px;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+.cloud-actions { display: flex; flex-direction: column; gap: 8px; padding: 6px 16px 14px; }
+.cloud-actions .form-error { margin: 0; }
 .icon-btn:active { transform: scale(0.92); background: var(--fill-2); }
 
 /* ───────── 본문 ───────── */

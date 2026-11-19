@@ -1,6 +1,6 @@
 // 서비스 워커: 앱 화면을 기기에 저장해 오프라인에서도 열리게 함
 // 코드를 수정하면 VERSION을 올려야 폰에 새 버전이 반영됩니다.
-const VERSION = 'wishbox-v9';
+const VERSION = 'wishbox-v10';
 const SHELL = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ const SHELL = [
   './js/sheet.js',
   './js/images.js',
   './js/meta.js',
+  './js/cloud.js',
   './manifest.webmanifest',
   './icons/icon.svg',
   './icons/icon-192.png',

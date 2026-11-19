@@ -2,6 +2,7 @@ import * as db from './db.js';
 import { Spring, haptic } from './spring.js';
 import { Sheet } from './sheet.js';
 import { processImage, blobUrl, blobToDataURL, dataURLToBlob } from './images.js';
+import * as cloud from './cloud.js';
 import {
   extractUrl, isValidUrl, normalizeUrl, siteNameFromUrl, parsePrice, buildQuery, naverSearchPageUrl,
 } from './meta.js';
@@ -19,6 +20,10 @@ const fmtDate = (ts) => {
   const d = new Date(ts);
   const sameYear = d.getFullYear() === new Date().getFullYear();
   return `${sameYear ? '' : `${d.getFullYear()}년 `}${d.getMonth() + 1}월 ${d.getDate()}일`;
+};
+const fmtDateTime = (ts) => {
+  const d = new Date(ts);
+  return `${fmtDate(ts)} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 };
 const daysAgo = (ts) => {
   const days = Math.floor((Date.now() - ts) / 86400000);
@@ -94,6 +99,7 @@ async function persist(item) {
   const idx = state.items.findIndex((i) => i.id === item.id);
   if (idx >= 0) state.items[idx] = item;
   else state.items.push(item);
+  cloud.scheduleSync(); // 로그인돼 있으면 잠시 후 클라우드에 반영
 }
 
 // 가격 변경 기록
@@ -896,6 +902,8 @@ function openDetail(id) {
   async function remove() {
     const it = findItem(id);
     await db.deleteItem(id);
+    cloud.markDeleted(id);
+    cloud.scheduleSync();
     state.items = state.items.filter((i) => i.id !== id);
     render();
     await sheet.close();
@@ -941,9 +949,89 @@ grid.addEventListener('click', (e) => {
 });
 
 /* ───────────── 설정 시트 ───────────── */
+function cloudStatusHtml() {
+  const s = cloud.getStatus();
+  if (s.state === 'syncing') return '<span class="spinner"></span> 동기화 중…';
+  if (s.state === 'error') return `<span class="tone-warn">${esc(s.error?.message || '동기화하지 못했어요')}</span>`;
+  const last = cloud.lastSyncAt();
+  return last ? `<span class="tone-green">${fmtDateTime(last)} 완료</span>` : '대기 중';
+}
+
+function cloudSectionHtml() {
+  if (!cloud.isSignedIn()) {
+    const cfg = cloud.getConfig();
+    return `
+      <div class="group-caption">클라우드 저장 (Supabase)</div>
+      <section class="group">
+        <form data-role="cloud-login" novalidate>
+          <label class="field"><span class="field-label">프로젝트 URL</span>
+            <input name="url" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://○○○.supabase.co" value="${esc(cfg.url)}"></label>
+          <label class="field"><span class="field-label">Publishable key</span>
+            <input name="key" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sb_publishable_로 시작하는 키" value="${esc(cfg.key)}"></label>
+          <label class="field"><span class="field-label">이메일</span>
+            <input name="email" type="email" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="이메일을 입력해주세요"></label>
+          <label class="field"><span class="field-label">비밀번호</span>
+            <input name="password" type="password" autocomplete="current-password" placeholder="비밀번호를 입력해주세요"></label>
+          <div class="cloud-actions">
+            <button type="submit" class="btn btn-primary btn-block">로그인하고 동기화 시작</button>
+            <p class="form-error" data-role="cloud-error" hidden></p>
+          </div>
+        </form>
+      </section>
+      <p class="group-foot">로그인하면 위시와 사진이 내 Supabase 프로젝트에도 저장돼서, 휴대폰 데이터가 지워져도 다시 로그인하면 복구돼요. 비밀번호는 저장하지 않아요.</p>`;
+  }
+  return `
+    <div class="group-caption">클라우드 저장 (Supabase)</div>
+    <section class="group">
+      <div class="row"><span>계정</span><span class="row-value">${esc(cloud.userEmail())}</span></div>
+      <div class="row"><span>동기화</span><span class="row-value" data-role="cloud-status">${cloudStatusHtml()}</span></div>
+      <button type="button" class="row row-btn" data-act="cloud-sync">${icon('refresh')}<span>지금 동기화</span></button>
+      <button type="button" class="row row-btn" data-act="cloud-logout"><span class="tone-red">로그아웃</span></button>
+    </section>
+    <p class="group-foot">위시를 저장·수정·삭제하면 자동으로 클라우드에 반영돼요. 무료 프로젝트는 7일 동안 사용이 없으면 일시정지될 수 있어요. 그땐 Supabase 대시보드에서 다시 켜면 데이터는 그대로예요.</p>`;
+}
+
 function openSettings() {
-  const sheet = new Sheet({ title: '설정', className: 'sheet-settings' });
+  let unsubscribe = () => {};
+  const sheet = new Sheet({ title: '설정', className: 'sheet-settings', onClose: () => unsubscribe() });
   sheet.right.innerHTML = `<button type="button" class="nav-btn nav-btn-strong" data-act="close">완료</button>`;
+
+  // 동기화 상태가 바뀌면 표시만 갱신 (입력 중인 로그인 칸은 건드리지 않음)
+  unsubscribe = cloud.onStatus(() => {
+    const el = $('[data-role="cloud-status"]', sheet.body);
+    if (el) el.innerHTML = cloudStatusHtml();
+  });
+
+  sheet.body.addEventListener('submit', async (e) => {
+    const form = e.target.closest('[data-role="cloud-login"]');
+    if (!form) return;
+    e.preventDefault();
+    const err = $('[data-role="cloud-error"]', form);
+    const btn = $('button[type="submit"]', form);
+    const url = form.elements.url.value.trim();
+    const key = form.elements.key.value.trim();
+    const email = form.elements.email.value.trim();
+    const password = form.elements.password.value;
+    const showError = (msg) => { err.hidden = false; err.textContent = msg; };
+    if (!url || !key || !email || !password) { showError('네 칸을 모두 입력해 주세요.'); return; }
+    if (!/^https:\/\/[^/]+$/.test(url.replace(/\/+$/, ''))) { showError('프로젝트 URL은 https://○○○.supabase.co 형식이에요.'); return; }
+    err.hidden = true;
+    btn.disabled = true;
+    btn.textContent = '로그인 중…';
+    try {
+      cloud.setConfig({ url, key });
+      await cloud.signIn(email, password);
+      form.elements.password.value = '';
+      draw();
+      const r = await cloud.syncNow();
+      toast(`${icon('check')}클라우드에 연결했어요 · ${r.pushed}개 올림 · ${r.pulled}개 받음`);
+    } catch (ex) {
+      if (cloud.isSignedIn()) { draw(); toast(esc(ex.message), { duration: 6000 }); return; }
+      showError(ex.message);
+      btn.disabled = false;
+      btn.textContent = '로그인하고 동기화 시작';
+    }
+  });
 
   async function draw() {
     const wish = state.items.filter((i) => i.status === 'wish');
@@ -960,20 +1048,38 @@ function openSettings() {
           <div class="stat stat-green"><span class="stat-label">포기로 아낀 돈</span><b>${won(sum(dropped)) || '0원'}</b><span class="stat-sub">${dropped.length}개</span></div>
         </section>
 
+        ${cloudSectionHtml()}
+
         <div class="group-caption">데이터</div>
         <section class="group">
           <button type="button" class="row row-btn" data-act="export">${icon('download')}<span>백업 파일 내보내기</span></button>
           <button type="button" class="row row-btn" data-act="import">${icon('upload')}<span>백업 파일 가져오기</span></button>
           <div class="row"><span>저장 상태</span><span class="row-value">${storage.persisted ? '<span class="tone-green">영구 저장</span>' : '일반'}${storage.usage != null ? ` · ${(storage.usage / 1048576).toFixed(1)}MB` : ''}</span></div>
         </section>
-        <p class="group-foot">모든 위시는 이 휴대폰 브라우저 안에만 저장돼요. 브라우저 데이터를 지우거나 폰을 바꾸면 사라지니, 가끔 백업 파일을 내보내 두세요.</p>
+        <p class="group-foot">${cloud.isSignedIn()
+          ? '위시는 이 휴대폰과 클라우드에 함께 저장돼요. 백업 파일은 추가로 보관하고 싶을 때만 내보내면 돼요.'
+          : '지금은 위시가 이 휴대폰 브라우저 안에만 저장돼요. 브라우저 데이터가 지워지면 사라지니, 클라우드 저장을 켜 두는 걸 권해요.'}</p>
         <input type="file" accept="application/json,.json" data-role="import-file" hidden>
       </div>`;
   }
 
-  sheet.layer.addEventListener('click', (e) => {
+  sheet.layer.addEventListener('click', async (e) => {
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (act === 'close') sheet.close();
+    if (act === 'cloud-sync') {
+      try {
+        const r = await cloud.syncNow();
+        toast(r.pushed || r.pulled ? `동기화했어요 · ${r.pushed}개 올림 · ${r.pulled}개 받음` : '이미 최신 상태예요');
+      } catch (ex) {
+        toast(esc(ex.message), { duration: 6000 });
+        if (!cloud.isSignedIn()) draw();
+      }
+    }
+    if (act === 'cloud-logout') {
+      await cloud.signOut();
+      draw();
+      toast('로그아웃했어요. 이 휴대폰의 위시는 그대로 남아 있어요');
+    }
     if (act === 'export') exportBackup();
     if (act === 'import') {
       const input = $('[data-role="import-file"]', sheet.body);
@@ -997,6 +1103,7 @@ async function exportBackup() {
     const items = await Promise.all(state.items.map(async (it) => ({
       ...it,
       images: await Promise.all(it.images.map(async (img) => ({
+        id: img.id,
         full: await blobToDataURL(img.full),
         thumb: await blobToDataURL(img.thumb),
       }))),
@@ -1023,14 +1130,18 @@ async function importBackup(file) {
     if (json?.app !== 'wishbox' || !Array.isArray(json.items)) throw new Error('형식 오류');
     const items = await Promise.all(json.items.map(async (raw) => normalizeItem({
       ...raw,
+      // 사진 파일 경로는 넣지 않음 → 동기화 때 현재 계정으로 다시 올림
       images: await Promise.all((raw.images || []).map(async (img) => ({
+        id: img.id,
         full: await dataURLToBlob(img.full),
         thumb: await dataURLToBlob(img.thumb),
       }))),
+      updatedAt: Date.now(),
     })));
     await db.putItems(items);
     state.items = (await db.getAllItems()).map(normalizeItem);
     render();
+    cloud.scheduleSync();
     toast(`${items.length}개 위시를 가져왔어요`);
   } catch {
     toast('위시함 백업 파일이 아니거나 손상됐어요');
@@ -1061,6 +1172,24 @@ async function init() {
   handleLaunchParams();
 
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  startCloudSync();
+}
+
+/* ───────────── 클라우드 동기화 연결 ───────────── */
+function startCloudSync() {
+  cloud.setLocalSource(() => state.items);
+  cloud.onStatus(async (s) => {
+    // 동기화 오류가 있으면 설정 아이콘에 빨간 점
+    $('#settingsBtn').classList.toggle('has-alert', s.state === 'error');
+    // 클라우드에서 받아온 게 있으면 화면 새로 고침
+    if (s.state === 'idle' && s.result?.pulled) {
+      state.items = (await db.getAllItems()).map(normalizeItem);
+      render();
+    }
+  });
+  if (cloud.isSignedIn()) cloud.syncNow().catch(() => {});
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) cloud.scheduleSync(500); });
+  window.addEventListener('online', () => cloud.scheduleSync(500));
 }
 
 init();
